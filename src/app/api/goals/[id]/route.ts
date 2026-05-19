@@ -191,7 +191,7 @@ export async function PUT(
               id: { not: id }
             }
           });
-          const otherTotalWeightage = otherGoals.reduce((sum: number, g) => sum + g.weightage, 0);
+          const otherTotalWeightage = otherGoals.reduce((sum: number, g: any) => sum + g.weightage, 0);
 
           if (otherTotalWeightage + weightNum > 100) {
             return NextResponse.json({

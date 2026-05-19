@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     const userGoals = await prisma.goal.findMany({
       where: { userId: currentUserId }
     });
-    const currentTotalWeightage = userGoals.reduce((sum: number, g) => sum + g.weightage, 0);
+    const currentTotalWeightage = userGoals.reduce((sum: number, g: any) => sum + g.weightage, 0);
 
     if (currentTotalWeightage + weightNum > 100) {
       return NextResponse.json({
