@@ -2,72 +2,97 @@ import { prisma } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 async function main() {
-  console.log('Seeding enterprise database...');
+  console.log('Seeding enterprise database with customized hackathon submission credentials...');
 
-  const hashedPassword = await bcrypt.hash('Password123', 10);
+  // Helper to hash passwords securely
+  const hash = async (pwd: string) => await bcrypt.hash(pwd, 10);
 
   // 1. Create Admins
+  const adminPassword = await hash('Password123');
   const admin = await prisma.user.upsert({
     where: { email: 'admin@enterprise.com' },
-    update: { password: hashedPassword },
+    update: { password: adminPassword },
     create: {
       name: 'Sarah Connor',
       email: 'admin@enterprise.com',
-      password: hashedPassword,
+      password: adminPassword,
       role: 'ADMIN',
     },
   });
 
   // 2. Create Managers
-  const manager = await prisma.user.upsert({
-    where: { email: 'manager@enterprise.com' },
-    update: { password: hashedPassword },
+  const pmPassword = await hash('projectmgr');
+  const managerPm = await prisma.user.upsert({
+    where: { email: 'project@manager.com' },
+    update: { password: pmPassword },
     create: {
       name: 'James Carter',
-      email: 'manager@enterprise.com',
-      password: hashedPassword,
+      email: 'project@manager.com',
+      password: pmPassword,
       role: 'MANAGER',
     },
   });
 
-  const managerHr = await prisma.user.upsert({
-    where: { email: 'managerhr@gmail.com' },
-    update: { password: hashedPassword },
+  const salesPassword = await hash('saless');
+  const managerSales = await prisma.user.upsert({
+    where: { email: 'salesmgr@gmail.com' },
+    update: { password: salesPassword },
     create: {
       name: 'Helen Ross',
-      email: 'managerhr@gmail.com',
-      password: hashedPassword,
+      email: 'salesmgr@gmail.com',
+      password: salesPassword,
       role: 'MANAGER',
     },
   });
 
   // 3. Create Employees
-  const employee1 = await prisma.user.upsert({
-    where: { email: 'employee1@enterprise.com' },
-    update: { password: hashedPassword, managerId: manager.id },
+  const nehaPassword = await hash('neha1');
+  const employeeNeha = await prisma.user.upsert({
+    where: { email: 'neha@emp.com' },
+    update: { password: nehaPassword, managerId: managerPm.id },
     create: {
-      name: 'John Doe',
-      email: 'employee1@enterprise.com',
-      password: hashedPassword,
+      name: 'Neha Sharma',
+      email: 'neha@emp.com',
+      password: nehaPassword,
       role: 'EMPLOYEE',
-      managerId: manager.id,
+      managerId: managerPm.id,
     },
   });
 
-  const employee2 = await prisma.user.upsert({
-    where: { email: 'employee2@enterprise.com' },
-    update: { password: hashedPassword, managerId: manager.id },
+  const swethaPassword = await hash('swetha1');
+  const employeeSwetha = await prisma.user.upsert({
+    where: { email: 'swetha@emp.com' },
+    update: { password: swethaPassword, managerId: managerPm.id },
     create: {
-      name: 'Jane Smith',
-      email: 'employee2@enterprise.com',
-      password: hashedPassword,
+      name: 'Swetha Patel',
+      email: 'swetha@emp.com',
+      password: swethaPassword,
       role: 'EMPLOYEE',
-      managerId: manager.id,
+      managerId: managerPm.id,
+    },
+  });
+
+  const preetiPassword = await hash('preeti1');
+  const employeePreeti = await prisma.user.upsert({
+    where: { email: 'preeti@emp.com' },
+    update: { password: preetiPassword, managerId: managerSales.id },
+    create: {
+      name: 'Preeti Deshmukh',
+      email: 'preeti@emp.com',
+      password: preetiPassword,
+      role: 'EMPLOYEE',
+      managerId: managerSales.id,
     },
   });
 
   // 4. Create Goals
   console.log('Seeding Goals...');
+  
+  // Clean existing goals first to ensure fresh seed
+  await prisma.goal.deleteMany({});
+  await prisma.quarterlyReview.deleteMany({});
+  await prisma.checkIn.deleteMany({});
+
   const goal1 = await prisma.goal.create({
     data: {
       title: 'Increase Core Platform Scalability',
@@ -81,7 +106,7 @@ async function main() {
       uomType: 'MIN',
       target: '99.99%',
       isShared: false,
-      userId: employee1.id,
+      userId: employeeNeha.id,
     },
   });
 
@@ -98,7 +123,7 @@ async function main() {
       uomType: 'ZERO',
       target: '0 manual deployments',
       isShared: false,
-      userId: employee1.id,
+      userId: employeeNeha.id,
     },
   });
 
@@ -115,7 +140,7 @@ async function main() {
       uomType: 'MIN',
       target: '100% compliance',
       isShared: false,
-      userId: employee2.id,
+      userId: employeeSwetha.id,
     },
   });
 
@@ -129,7 +154,7 @@ async function main() {
       blockers: 'None.',
       nextSteps: 'Work on performance optimization of CSV reporting next.',
       goalId: goal1.id,
-      userId: employee1.id,
+      userId: employeeNeha.id,
     },
   });
 
@@ -142,7 +167,7 @@ async function main() {
       managerFeedback: 'Exceptional database architecture progress. Keep up the high standards!',
       status: 'On Track',
       goalId: goal1.id,
-      userId: employee1.id,
+      userId: employeeNeha.id,
     },
   });
 
@@ -155,12 +180,14 @@ async function main() {
       managerFeedback: 'Outstanding work. 100% compliance target achieved early.',
       status: 'Completed',
       goalId: goal3.id,
-      userId: employee2.id,
+      userId: employeeSwetha.id,
     },
   });
 
   // 6. Create AuditLogs (including rework / escalations)
   console.log('Seeding AuditLogs...');
+  await prisma.auditLog.deleteMany({});
+  
   await prisma.auditLog.create({
     data: {
       action: 'APPROVE_GOAL',
@@ -171,7 +198,7 @@ async function main() {
       role: 'MANAGER',
       actionType: 'APPROVAL',
       goalId: goal1.id,
-      userId: manager.id,
+      userId: managerPm.id,
     },
   });
 
@@ -185,7 +212,7 @@ async function main() {
       role: 'MANAGER',
       actionType: 'REWORK_REQUEST',
       goalId: goal2.id,
-      userId: manager.id,
+      userId: managerPm.id,
     },
   });
 
@@ -203,7 +230,7 @@ async function main() {
     },
   });
 
-  console.log('Database seeded successfully.');
+  console.log('Database seeded successfully with custom hackathon credentials.');
 }
 
 main()

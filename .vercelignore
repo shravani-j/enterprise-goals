@@ -6,6 +6,5 @@ test-results
 playwright-report
 .git
 .github
-*.db
 *.db-journal
-/prisma/*.db
+!/prisma/dev.db
