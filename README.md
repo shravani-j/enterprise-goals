@@ -1,6 +1,6 @@
 # Enterprise Goal Setting & Performance Tracking Portal
 
-An enterprise-grade, high-performance **Goal Setting, Check-In, and Visual Analytics Portal** designed to streamline OKR tracking, manager workflows, and organization-wide governance. Built with modern web standards, beautiful aesthetics, and absolute type-safety.
+An enterprise-grade, high-performance **Goal Setting, Check-In, and Visual Analytics Portal** designed to streamline OKR tracking, manager workflows, and organization-wide governance. Built with modern web standards and absolute type-safety.
 
 ---
 
