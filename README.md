@@ -1,10 +1,10 @@
-# 🚀 Enterprise Goal Setting & Performance Tracking Portal
+# Enterprise Goal Setting & Performance Tracking Portal
 
 An enterprise-grade, high-performance **Goal Setting, Check-In, and Visual Analytics Portal** designed to streamline OKR tracking, manager workflows, and organization-wide governance. Built with modern web standards, beautiful aesthetics, and absolute type-safety.
 
 ---
 
-## 🎨 Premium Aesthetics & UI System
+## Premium Aesthetics & UI System
 The portal uses an elite corporate **glassmorphic design system** styled with custom CSS variables:
 * **Color Palette**: Sophisticated Dijon, Mimosa, and Flax Yellow accents matched with highly polished, readable dark modes.
 * **Typography**: Custom fonts configured for optimal readability (Manrope for headers, Inter and Poppins for UI widgets).
@@ -12,35 +12,35 @@ The portal uses an elite corporate **glassmorphic design system** styled with cu
 
 ---
 
-## ⚡ Core Features
+## Core Features
 
-### 1. 📊 Goal Creation & Multi-Tier Validation
+### 1. Goal Creation & Multi-Tier Validation
 * Strictly enforced enterprise rules: Goal weightages between **10% and 100%**, maximum of **8 active goals** per employee, and total allocated weightage capped at **100%**.
 * Robust, custom-built, resilient server-side date parsers handling standard ISO `YYYY-MM-DD` and `DD-MM-YYYY` client formats dynamically to prevent database runtime crashes.
 
-### 2. 📅 Automated Kanban Workflow Lifecycle
+### 2. Automated Kanban Workflow Lifecycle
 * Fluid drag-and-drop workflow tracking a goal's journey: `Draft` ➔ `Submitted` ➔ `Approved` / `Returned for Rework` ➔ `Locked`.
 * Automatically locks goals upon manager approval to prevent un-audited modifications.
 
-### 3. ⏱️ Quarterly Check-In & Progress Timelines
+### 3. Quarterly Check-In & Progress Timelines
 * Automated schedule: Goal Setting (May), Q1 Check-in (July), Q2 Check-in (October), Q3 Check-in (January), Q4/Annual Review (March-April).
 * Interactive Vertical Timeline showing historical updates categorized by **wins**, **blockers**, and **next steps**.
 * Restricts employee changes on locked/completed goals while retaining manager override controls.
 
-### 4. 📈 completion Dashboard & Rich Analytics
+### 4. Completion Dashboard & Rich Analytics
 * Interactive analytics graphs (powered by **Recharts**) showing organization-wide, department-wise, and team-wise progress.
 * Dynamic KPIs tracking **completion percentage**, **pending reviews**, and **overdue check-ins**.
 
-### 5. 🔍 Audit Trails & Governance
+### 5. Audit Trails & Governance
 * Comprehensive, chronological audit log capturing every post-lock adjustment: *who modified what, previous values, new values, role, timestamps, and action types*.
 * Role-based edge middleware dynamically verifying session context and restricting `/admin` and `/manager` panels immediately at the router level.
 
-### 📥 Paginated Achievement CSV Reporting
+### Paginated Achievement CSV Reporting
 * Efficient achievement reports featuring paginated tables, keyword search filters, date range pickers, and direct CSV file downloads.
 
 ---
 
-## 🛠️ Technical Stack
+## Technical Stack
 * **Framework**: Next.js 16.2.6 (App Router) + TypeScript
 * **Styling**: Tailwind CSS + Custom HSL variables + Framer Motion
 * **Database**: Supabase PostgreSQL / Local SQLite (dev) + Prisma ORM
@@ -50,7 +50,7 @@ The portal uses an elite corporate **glassmorphic design system** styled with cu
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Installation
 Clone the repository and install all dependencies:
@@ -82,7 +82,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🧪 Testing Suites
+## Testing Suites
 We maintain strict quality control through comprehensive testing pipelines:
 
 * **Run Unit Tests** (Validation rules, weight calculations, permissions):
@@ -97,7 +97,7 @@ We maintain strict quality control through comprehensive testing pipelines:
 
 ---
 
-## 📁 Environment Setup Guide (`.env`)
+## Environment Setup Guide (`.env`)
 Create a `.env` file in the root directory by following [.env.example](file:///.env.example):
 ```bash
 # App Environment
@@ -116,7 +116,7 @@ RESEND_API_KEY="re_123456789"
 
 ---
 
-## 🔒 Production Deployment
+## Production Deployment
 * **Vercel Deployments**: The repository contains an optimized [vercel.json](file:///vercel.json) configuration specifying production headers (Strict-Transport-Security, CSP, DNS Prefetch, Permissions-Policy) and cron schedulers.
 * **Prisma migrations**: For production PostgreSQL, execute pending transactional migrations safely via:
   ```bash
