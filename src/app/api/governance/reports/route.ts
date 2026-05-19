@@ -47,11 +47,17 @@ export async function GET(req: Request) {
 
     // Date filters
     let dateFilter: any = {};
-    if (startDateParam || endDateParam) {
+    const parsedStart = startDateParam && startDateParam.trim() !== "" ? new Date(startDateParam) : null;
+    const parsedEnd = endDateParam && endDateParam.trim() !== "" ? new Date(endDateParam) : null;
+    
+    const startValid = parsedStart && !isNaN(parsedStart.getTime());
+    const endValid = parsedEnd && !isNaN(parsedEnd.getTime());
+
+    if (startValid || endValid) {
       dateFilter = {
         createdAt: {
-          ...(startDateParam && { gte: new Date(startDateParam) }),
-          ...(endDateParam && { lte: new Date(endDateParam) })
+          ...(startValid && { gte: parsedStart }),
+          ...(endValid && { lte: parsedEnd })
         }
       };
     }
