@@ -112,7 +112,7 @@ export async function GET(req: Request) {
         "Created At"
       ].join(",");
 
-      const csvRows = goals.map(g => {
+      const csvRows = goals.map((g: any) => {
         return [
           `"${g.id}"`,
           `"${g.user.name || 'N/A'}"`,
