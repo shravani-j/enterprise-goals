@@ -20,15 +20,15 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email }
         });
         
-        if (!user || !user.password) {
-          throw new Error("Invalid credentials");
-        }
+if (!user || !user.password) {
+  return null;
+}
         
         const isValid = await bcrypt.compare(credentials.password, user.password);
         
-        if (!isValid) {
-          throw new Error("Invalid credentials");
-        }
+if (!isValid) {
+  return null;
+}
         
         return {
           id: user.id,
