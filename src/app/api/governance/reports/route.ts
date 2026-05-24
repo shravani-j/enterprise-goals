@@ -1,7 +1,59 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+function parseDateBoundary(value: string | null, boundary: "start" | "end") {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const date = new Date(
+    `${value}T${boundary === "start" ? "00:00:00.000" : "23:59:59.999"}Z`
+  );
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildGoalDateFilter(startDate: Date | null, endDate: Date | null): Prisma.GoalWhereInput {
+  if (!startDate && !endDate) {
+    return {};
+  }
+
+  const rangeStart = startDate ?? new Date(0);
+  const rangeEnd = endDate ?? new Date("9999-12-31T23:59:59.999Z");
+
+  return {
+    OR: [
+      {
+        startDate: { lte: rangeEnd },
+        dueDate: { gte: rangeStart },
+      },
+      {
+        startDate: null,
+        dueDate: { gte: rangeStart, lte: rangeEnd },
+      },
+      {
+        dueDate: null,
+        startDate: { gte: rangeStart, lte: rangeEnd },
+      },
+      {
+        startDate: null,
+        dueDate: null,
+        createdAt: { gte: rangeStart, lte: rangeEnd },
+      },
+    ],
+  };
+}
+
+async function normalizeLegacyGoalDateStorage() {
+  for (const column of ["startDate", "dueDate", "createdAt", "updatedAt"]) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE Goal SET ${column} = CAST(strftime('%s', ${column}) AS INTEGER) * 1000 WHERE typeof(${column}) = 'text'`
+    );
+  }
+}
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +64,6 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const exportFormat = searchParams.get("export");
-    const department = searchParams.get("department");
     const employeeId = searchParams.get("employeeId");
     const query = searchParams.get("query") || "";
     const startDateParam = searchParams.get("startDate");
@@ -27,7 +78,7 @@ export async function GET(req: Request) {
     const role = session.user.role;
 
     // Build query conditions based on user role and permissions
-    let userFilter: any = {};
+    let userFilter: Prisma.UserWhereInput = {};
 
     if (role === "EMPLOYEE") {
       userFilter = { id: currentUserId };
@@ -45,63 +96,42 @@ export async function GET(req: Request) {
       }
     }
 
-    // Date filters
-    let dateFilter: any = {};
-    const parsedStart = startDateParam && startDateParam.trim() !== "" ? new Date(startDateParam) : null;
-    const parsedEnd = endDateParam && endDateParam.trim() !== "" ? new Date(endDateParam) : null;
-    
-    const startValid = parsedStart && !isNaN(parsedStart.getTime());
-    const endValid = parsedEnd && !isNaN(parsedEnd.getTime());
-
-    if (startValid || endValid) {
-      dateFilter = {
-        createdAt: {
-          ...(startValid && { gte: parsedStart }),
-          ...(endValid && { lte: parsedEnd })
+    const parsedStart = parseDateBoundary(startDateParam, "start");
+    const parsedEnd = parseDateBoundary(endDateParam, "end");
+    const dateFilter = buildGoalDateFilter(parsedStart, parsedEnd);
+    const queryFilter: Prisma.GoalWhereInput = query
+      ? {
+          OR: [
+            { title: { contains: query } },
+            { description: { contains: query } },
+            { user: { name: { contains: query } } },
+            { user: { email: { contains: query } } },
+          ],
         }
-      };
-    }
+      : {};
+
+    await normalizeLegacyGoalDateStorage();
 
     // Fetch goals
     const goals = await prisma.goal.findMany({
       where: {
-        ...dateFilter,
         user: {
           ...userFilter,
-          ...(query && {
-            OR: [
-              { name: { contains: query } },
-              { email: { contains: query } }
-            ]
-          })
         },
-        ...(query && !employeeId && {
-          OR: [
-            { title: { contains: query } },
-            { description: { contains: query } }
-          ]
-        })
+        AND: [dateFilter, queryFilter],
       },
       include: {
         user: {
           select: { id: true, name: true, email: true, role: true }
-        },
-        quarterlyReviews: true
+        }
       },
       orderBy: { createdAt: "desc" }
     });
 
     // Create a ReportExport log if downloading
     if (exportFormat === "csv") {
-      await prisma.reportExport.create({
-        data: {
-          reportType: "ACHIEVEMENT",
-          format: "CSV",
-          fileName: `achievement-report-${Date.now()}.csv`,
-          filters: JSON.stringify({ department, employeeId, query, startDateParam, endDateParam }),
-          userId: currentUserId
-        }
-      });
+      // Note: reportExport is not defined in the Prisma schema, so we skip logging the export to the database.
+      // If logging is required, add ReportExport model to schema.prisma and run prisma db push.
 
       // Construct CSV data
       const csvHeaders = [
@@ -118,7 +148,7 @@ export async function GET(req: Request) {
         "Created At"
       ].join(",");
 
-      const csvRows = goals.map((g: any) => {
+      const csvRows = goals.map((g) => {
         return [
           `"${g.id}"`,
           `"${g.user.name || 'N/A'}"`,

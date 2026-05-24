@@ -1,8 +1,40 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseDateSafely } from "@/lib/utils";
+
+const VALID_UOM_TYPES = ["NUMERIC", "PERCENTAGE", "TIMELINE", "ZERO_BASED"] as const;
+type ValidUomType = (typeof VALID_UOM_TYPES)[number];
+
+function normalizeUomType(value: unknown): ValidUomType {
+  if (value === "ZERO" || value === "ZERO_BASED") {
+    return "ZERO_BASED";
+  }
+
+  if (typeof value === "string" && VALID_UOM_TYPES.includes(value as ValidUomType)) {
+    return value as ValidUomType;
+  }
+
+  if (value === "TIMELINE") {
+    return "TIMELINE";
+  }
+
+  if (value === "PERCENTAGE") {
+    return "PERCENTAGE";
+  }
+
+  return "NUMERIC";
+}
+
+async function normalizeLegacyGoalUomTypes() {
+  await prisma.$executeRawUnsafe(
+    "UPDATE Goal SET uomType = 'NUMERIC' WHERE uomType IN ('MIN', 'MAX')"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE Goal SET uomType = 'ZERO_BASED' WHERE uomType = 'ZERO'"
+  );
+}
 
 export async function GET(req: Request) {
   try {
@@ -20,7 +52,7 @@ export async function GET(req: Request) {
     const currentUserId = session.user.id;
     console.log("GET /api/goals currentUserId", currentUserId, "role", role, "filterUserId", filterUserId);
 
-    let whereClause: any = {};
+    const whereClause: Prisma.GoalWhereInput = {};
 
     if (role === "EMPLOYEE") {
       whereClause.userId = currentUserId;
@@ -48,6 +80,7 @@ export async function GET(req: Request) {
     }
 
     console.log("GET /api/goals whereClause", whereClause);
+    await normalizeLegacyGoalUomTypes();
     const goals = await prisma.goal.findMany({
       where: whereClause,
       include: {
@@ -94,6 +127,7 @@ export async function POST(req: Request) {
     }
 
     const currentUserId = session.user.id;
+    const normalizedUomType = normalizeUomType(uomType);
 
     // Active goals limit validation (max 8 active goals)
     const activeGoalsCount = await prisma.goal.count({
@@ -108,10 +142,11 @@ export async function POST(req: Request) {
     }
 
     // Total weightage validation (max 100)
+    await normalizeLegacyGoalUomTypes();
     const userGoals = await prisma.goal.findMany({
       where: { userId: currentUserId }
     });
-    const currentTotalWeightage = userGoals.reduce((sum: number, g: any) => sum + g.weightage, 0);
+    const currentTotalWeightage = userGoals.reduce((sum, goal) => sum + goal.weightage, 0);
 
     if (currentTotalWeightage + weightNum > 100) {
       return NextResponse.json({
@@ -125,7 +160,7 @@ export async function POST(req: Request) {
         description,
         weightage,
         priority,
-        uomType,
+        uomType: normalizedUomType,
         target,
         startDate: startDate ? new Date(startDate) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -150,7 +185,7 @@ export async function POST(req: Request) {
           description,
           weightage,
           priority,
-          uomType,
+          uomType: normalizedUomType,
           target,
           startDate: startDate ? new Date(startDate) : null,
           dueDate: dueDate ? new Date(dueDate) : null,

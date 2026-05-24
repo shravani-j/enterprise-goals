@@ -2,7 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { DndContext, DragEndEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  useDraggable,
+  useDroppable,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
   Target,
@@ -108,6 +118,7 @@ export function GoalPortal() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [activeDragGoal, setActiveDragGoal] = useState<Goal | null>(null);
 
   // Dialog State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -121,7 +132,7 @@ export function GoalPortal() {
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [uomType, setUomType] = useState<"MIN" | "MAX" | "TIMELINE" | "ZERO">("MIN");
+  const [uomType, setUomType] = useState<"NUMERIC" | "PERCENTAGE" | "TIMELINE" | "ZERO_BASED">("NUMERIC");
   const [target, setTarget] = useState("");
 
   // Action State (Check-in & Comment)
@@ -188,7 +199,7 @@ export function GoalPortal() {
     setPriority("MEDIUM" as any);
     setStartDate("");
     setDueDate("");
-    setUomType("MIN");
+    setUomType("NUMERIC");
     setTarget("");
   };
 
@@ -216,7 +227,13 @@ export function GoalPortal() {
     ? Math.round(goals.reduce((sum, g) => sum + g.progress, 0) / goals.length)
     : 0;
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const goal = goals.find((g) => g.id === event.active.id);
+    setActiveDragGoal(goal ?? null);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragGoal(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -673,7 +690,12 @@ export function GoalPortal() {
         </div>
       ) : (
 
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDragGoal(null)}
+        >
           <div className="flex gap-4 items-start overflow-x-auto pb-6">
 
             <DroppableColumn
@@ -732,6 +754,13 @@ export function GoalPortal() {
             </DroppableColumn>
 
           </div>
+          <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" }}>
+            {activeDragGoal ? (
+              <div className="w-[248px]">
+                <GoalCard goal={activeDragGoal} isOverlay />
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
 
@@ -826,10 +855,10 @@ export function GoalPortal() {
                         onChange={(e) => setUomType(e.target.value as any)}
                         className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-[var(--color-dijon)] focus:ring-4 focus:ring-[var(--color-dijon)]/10 outline-none transition-all text-sm appearance-none bg-white"
                       >
-                        <option value="MIN">Min (Numeric / %)</option>
-                        <option value="MAX">Max (Numeric / %)</option>
+                        <option value="NUMERIC">Numeric</option>
+                        <option value="PERCENTAGE">Percentage</option>
                         <option value="TIMELINE">Timeline</option>
-                        <option value="ZERO">Zero</option>
+                        <option value="ZERO_BASED">Zero Based</option>
                       </select>
                     </div>
                     
@@ -1272,11 +1301,37 @@ function DraggableGoalCard({
   goal: Goal;
   onClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: goal.id });
+  const { attributes, isDragging, listeners, setNodeRef, transform } = useDraggable({ id: goal.id });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
+    transform: isDragging ? undefined : CSS.Transform.toString(transform),
+    touchAction: "none",
+    transition: isDragging ? undefined : "transform 180ms cubic-bezier(0.2, 0, 0, 1)",
   };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={onClick}
+      className={isDragging ? "opacity-30" : undefined}
+    >
+      <GoalCard goal={goal} onDetails={onClick} />
+    </div>
+  );
+}
+
+function GoalCard({
+  goal,
+  isOverlay = false,
+  onDetails,
+}: {
+  goal: Goal;
+  isOverlay?: boolean;
+  onDetails?: () => void;
+}) {
 
   const priorityColor: Record<Goal["priority"], string> = {
     HIGH: "bg-rose-50 text-rose-600 border-rose-200",
@@ -1290,15 +1345,14 @@ function DraggableGoalCard({
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      onClick={onClick}
-      className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] cursor-pointer hover:shadow-md hover:border-zinc-200 transition-all group"
+      className={`box-border flex h-[278px] w-full max-w-full flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] transition-[box-shadow,border-color,transform] duration-200 group ${
+        isOverlay
+          ? "cursor-grabbing border-zinc-200 shadow-2xl ring-1 ring-black/5"
+          : "cursor-pointer hover:border-zinc-200 hover:shadow-md"
+      }`}
     >
       {/* Priority badge + grip */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex h-8 shrink-0 items-center justify-between">
         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border ${priorityColor[goal.priority]}`}>
           {goal.priority}
         </span>
@@ -1306,19 +1360,17 @@ function DraggableGoalCard({
       </div>
 
       {/* Title */}
-      <h4 className="font-bold text-zinc-800 text-[13px] leading-relaxed">
+      <h4 className="line-clamp-2 min-h-[40px] font-bold text-zinc-800 text-[13px] leading-relaxed">
         {goal.title}
       </h4>
 
       {/* Description */}
-      {goal.description && (
-        <p className="text-[11px] text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
-          {goal.description}
-        </p>
-      )}
+      <p className="mt-2 line-clamp-2 min-h-[34px] text-[11px] text-zinc-400 leading-relaxed">
+        {goal.description || "No description provided."}
+      </p>
 
       {/* Progress + Weight */}
-      <div className="mt-4 flex items-center gap-4 text-[11px] font-bold text-zinc-500">
+      <div className="mt-4 flex shrink-0 items-center gap-4 text-[11px] font-bold text-zinc-500">
         <span>Progress: {goal.progress}%</span>
         <span>Weight: {goal.weightage}%</span>
       </div>
@@ -1330,7 +1382,7 @@ function DraggableGoalCard({
       <div className="w-full h-px bg-zinc-100 my-4" />
 
       {/* Due date + Details link */}
-      <div className="flex items-center justify-between">
+      <div className="mt-auto flex shrink-0 items-center justify-between">
         {formattedDate ? (
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500">
             <Calendar className="w-3.5 h-3.5" />
@@ -1340,7 +1392,12 @@ function DraggableGoalCard({
           <span />
         )}
         <button
-          onClick={(e) => { e.stopPropagation(); onClick(); }}
+          type="button"
+          disabled={isOverlay}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetails?.();
+          }}
           className="flex items-center gap-0.5 text-[11px] text-[var(--color-dijon)] font-bold hover:opacity-80 transition-opacity"
         >
           Details <ChevronRight className="w-3 h-3" />

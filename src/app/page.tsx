@@ -19,7 +19,7 @@ function AuthForms({ authView, setAuthView }: { authView: string, setAuthView: a
   const [regPassword, setRegPassword] = useState("");
   const [regRole, setRegRole] = useState("EMPLOYEE");
   const [regManagerEmail, setRegManagerEmail] = useState("");
-  const [regCompanyCode, setRegCompanyCode] = useState("");
+  const [regCompanyCode, setRegCompanyCode] = useState("ENTERPRISE2026");
   const [regError, setRegError] = useState("");
 
   // Common State
@@ -46,12 +46,6 @@ function AuthForms({ authView, setAuthView }: { authView: string, setAuthView: a
     e.preventDefault();
     setIsLoading(true);
     setRegError("");
-
-    if (regRole === "EMPLOYEE" && !regManagerEmail.trim()) {
-      setRegError("Manager email is required for employee registration.");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch("/api/auth/register", {

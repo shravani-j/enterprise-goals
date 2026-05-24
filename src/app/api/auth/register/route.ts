@@ -1,106 +1,138 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+const COMPANY_CODE = "ENTERPRISE2026";
+const VALID_ROLES = ["EMPLOYEE", "MANAGER", "ADMIN"] as const;
+type ValidRole = (typeof VALID_ROLES)[number];
+
+function normalizeEmail(email: unknown) {
+  return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
 
 export async function POST(req: Request) {
   try {
-    console.log("[REGISTER] Starting registration request");
+    let body: unknown;
 
-    let body;
     try {
       body = await req.json();
-    } catch (parseError) {
-      console.error("[REGISTER] JSON parse error:", parseError);
-      return NextResponse.json({ message: "Invalid JSON in request body" }, { status: 400 });
+    } catch {
+      return NextResponse.json(
+        { message: "Invalid registration request" },
+        { status: 400 }
+      );
     }
 
-    const { name, email, password, companyCode, role, managerEmail } = body;
-    console.log("[REGISTER] Request data:", { name, email, role, hasPassword: !!password, companyCode });
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { message: "Invalid registration request" },
+        { status: 400 }
+      );
+    }
+
+    const registration = body as Record<string, unknown>;
+
+    const name =
+      typeof registration.name === "string" ? registration.name.trim() : "";
+    const email = normalizeEmail(registration.email);
+    const password =
+      typeof registration.password === "string" ? registration.password : "";
+    const companyCode =
+      typeof registration.companyCode === "string"
+        ? registration.companyCode.trim()
+        : "";
+    const managerEmail = normalizeEmail(registration.managerEmail);
+    const requestedRole =
+      typeof registration.role === "string"
+        ? registration.role.toUpperCase()
+        : "EMPLOYEE";
 
     if (!name || !email || !password) {
-      console.log("[REGISTER] Validation failed - missing fields:", { name: !!name, email: !!email, password: !!password });
-      return NextResponse.json({ message: "Missing required fields: name, email, password" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Name, email, and password are required" },
+        { status: 400 }
+      );
     }
 
-    if (companyCode !== "ENTERPRISE2026") {
-      console.log("[REGISTER] Invalid company code:", companyCode);
-      return NextResponse.json({ message: "Invalid company code. Must be: ENTERPRISE2026" }, { status: 403 });
+    if (companyCode !== COMPANY_CODE) {
+      return NextResponse.json(
+        { message: "Invalid company code" },
+        { status: 400 }
+      );
     }
 
-    console.log("[REGISTER] Checking if user exists:", email);
+    if (!VALID_ROLES.includes(requestedRole as ValidRole)) {
+      return NextResponse.json(
+        { message: "Invalid role selected" },
+        { status: 400 }
+      );
+    }
+
     const existingUser = await prisma.user.findUnique({
       where: { email },
+      select: { id: true },
     });
 
     if (existingUser) {
-      console.log("[REGISTER] User already exists:", email);
-      return NextResponse.json({ message: "User already exists with this email" }, { status: 409 });
+      return NextResponse.json(
+        { message: "An account with this email already exists" },
+        { status: 409 }
+      );
     }
 
-    console.log("[REGISTER] Hashing password...");
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const assignedRole = role && ["EMPLOYEE", "MANAGER", "ADMIN"].includes(role) ? role : "EMPLOYEE";
-    console.log("[REGISTER] Assigned role:", assignedRole);
+    const normalizedRole = requestedRole as ValidRole;
+    let managerId: string | undefined;
 
-    let managerIdToSet: string | null = null;
-    if (assignedRole === "EMPLOYEE" && managerEmail) {
-      console.log("[REGISTER] EMPLOYEE role detected, looking for manager:", managerEmail);
-      const manager = await prisma.user.findFirst({
-        where: { email: managerEmail, role: "MANAGER" },
+    if (normalizedRole === "EMPLOYEE" && managerEmail) {
+      const manager = await prisma.user.findUnique({
+        where: { email: managerEmail },
+        select: { id: true, role: true },
       });
-      if (!manager) {
-        console.log("[REGISTER] Manager not found:", managerEmail);
-        return NextResponse.json({
-          message: `Manager with email "${managerEmail}" and MANAGER role not found`
-        }, { status: 400 });
+
+      if (!manager || manager.role !== "MANAGER") {
+        return NextResponse.json(
+          { message: "Manager email must belong to an existing manager" },
+          { status: 400 }
+        );
       }
-      managerIdToSet = manager.id;
-      console.log("[REGISTER] Manager found:", { managerId: managerIdToSet, managerEmail });
+
+      managerId = manager.id;
     }
 
-    console.log("[REGISTER] About to create user in database:", {
-      email,
-      name,
-      role: assignedRole,
-      managerId: managerIdToSet,
-    });
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
-        email,
         name,
+        email,
         password: hashedPassword,
-        role: assignedRole,
-        managerId: managerIdToSet,
+        role: normalizedRole,
+        ...(managerId ? { managerId } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        managerId: true,
       },
     });
 
-    console.log("[REGISTER] User created successfully:", {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    });
-
-    return NextResponse.json({
-      message: "User registered successfully",
-      user: { id: user.id, email: user.email, name: user.name, role: user.role }
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: "User registered successfully",
+        user,
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("[REGISTER] Caught error:", error);
-    if (error instanceof Error) {
-      console.error("[REGISTER] Error message:", error.message);
-      console.error("[REGISTER] Error stack:", error.stack);
-    }
+    console.error("[REGISTER] Registration failed:", error);
 
     return NextResponse.json(
       {
-        message: "Registration failed - check server logs",
-        error: error instanceof Error ? error.message : String(error),
+        message: "Registration failed",
       },
       { status: 500 }
     );
   }
 }
-
-

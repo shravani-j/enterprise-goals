@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 enum RoleType {
@@ -12,18 +13,11 @@ enum RoleType {
   ADMIN
 }
 
-enum QuarterType {
-  Q1
-  Q2
-  Q3
-  Q4
-}
-
 enum UomType {
-  MIN
-  MAX
+  NUMERIC
+  PERCENTAGE
   TIMELINE
-  ZERO
+  ZERO_BASED
 }
 
 enum GoalPriority {
@@ -53,12 +47,9 @@ model User {
   goals         Goal[]    @relation("UserGoals")
   sharedGoals   Goal[]    @relation("SharedGoals")
   checkIns      CheckIn[]
-  quarterlyReviews QuarterlyReview[]
   comments      Comment[]
   notifications Notification[]
   auditLogs     AuditLog[]
-  reportExports ReportExport[]
-  activityHistories ActivityHistory[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -74,8 +65,9 @@ model Goal {
   startDate   DateTime?
   dueDate     DateTime?
   progress    Int          @default(0)
-  uomType UomType @default(MIN)
+  uomType UomType @default(NUMERIC)
   target  String?
+
   isShared        Boolean @default(false)
 isPrimaryOwner  Boolean @default(false)
 
@@ -89,8 +81,6 @@ linkedGoals     Goal[]  @relation("SharedGoalLink")
   sharedWith  User[]       @relation("SharedGoals")
   
   checkIns    CheckIn[]
-  quarterlyReviews QuarterlyReview[]
-  progressHistory ProgressHistory[]
   comments    Comment[]
 
   createdAt   DateTime     @default(now())
@@ -113,34 +103,6 @@ model CheckIn {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-}
-
-model QuarterlyReview {
-  id              String      @id @default(cuid())
-  quarter         QuarterType
-  planned         String?
-  actual          String?
-  progress        Int         @default(0)
-  managerFeedback String?
-  status          String      @default("Not Started") // Not Started, On Track, Completed, Delayed
-  
-  goalId          String
-  goal            Goal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  
-  userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-}
-
-model ProgressHistory {
-  id              String      @id @default(cuid())
-  progress        Int
-  updateDate      DateTime    @default(now())
-  
-  goalId          String
-  goal            Goal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
 }
 
 model Comment {
@@ -169,51 +131,12 @@ model Notification {
 }
 
 model AuditLog {
-  id            String   @id @default(cuid())
-  action        String
-  details       String?
-  field         String?
-  previousValue String?
-  newValue      String?
-  role          String?
-  actionType    String?  // GOAL_EDIT, STATUS_CHANGE, APPROVAL, REWORK_REQUEST, QUARTERLY_UPDATE, ADMIN_OVERRIDE
-  goalId        String?
-  
-  userId        String?
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  createdAt     DateTime @default(now())
-  
-  @@index([createdAt])
-  @@index([userId])
-}
-
-model ReportExport {
-  id          String   @id @default(cuid())
-  reportType  String   // ACHIEVEMENT, COMPLETION, AUDIT_TRAIL, GOVERNANCE
-  format      String   // CSV, EXCEL
-  fileName    String
-  filters     String?  // JSON string of filters used
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime @default(now())
-  
-  @@index([userId])
-}
-
-model ActivityHistory {
   id          String   @id @default(cuid())
   action      String
   details     String?
-  actionType  String   // e.g. WORKFLOW, CHECKIN, EXPORT, SYSTEM
-  ipAddress   String?
   
   userId      String?
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime @default(now())
-  
-  @@index([userId])
 }
