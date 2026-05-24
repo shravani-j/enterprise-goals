@@ -27,14 +27,7 @@ function normalizeUomType(value: unknown): ValidUomType {
   return "NUMERIC";
 }
 
-async function normalizeLegacyGoalUomTypes() {
-  await prisma.$executeRawUnsafe(
-    "UPDATE Goal SET uomType = 'NUMERIC' WHERE uomType IN ('MIN', 'MAX')"
-  );
-  await prisma.$executeRawUnsafe(
-    "UPDATE Goal SET uomType = 'ZERO_BASED' WHERE uomType = 'ZERO'"
-  );
-}
+
 
 export async function GET(req: Request) {
   try {
@@ -80,7 +73,6 @@ export async function GET(req: Request) {
     }
 
     console.log("GET /api/goals whereClause", whereClause);
-    await normalizeLegacyGoalUomTypes();
     const goals = await prisma.goal.findMany({
       where: whereClause,
       include: {
@@ -142,7 +134,6 @@ export async function POST(req: Request) {
     }
 
     // Total weightage validation (max 100)
-    await normalizeLegacyGoalUomTypes();
     const userGoals = await prisma.goal.findMany({
       where: { userId: currentUserId }
     });
