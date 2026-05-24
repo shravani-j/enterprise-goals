@@ -90,7 +90,6 @@ async function main() {
   
   // Clean existing goals first to ensure fresh seed
   await prisma.goal.deleteMany({});
-  await prisma.quarterlyReview.deleteMany({});
   await prisma.checkIn.deleteMany({});
 
   const goal1 = await prisma.goal.create({
@@ -103,7 +102,7 @@ async function main() {
       startDate: new Date('2026-05-01'),
       dueDate: new Date('2026-08-31'),
       progress: 60,
-      uomType: 'MIN',
+      uomType: 'PERCENTAGE',
       target: '99.99%',
       isShared: false,
       userId: employeeNeha.id,
@@ -120,7 +119,7 @@ async function main() {
       startDate: new Date('2026-05-01'),
       dueDate: new Date('2026-08-31'),
       progress: 80,
-      uomType: 'ZERO',
+      uomType: 'ZERO_BASED',
       target: '0 manual deployments',
       isShared: false,
       userId: employeeNeha.id,
@@ -137,7 +136,7 @@ async function main() {
       startDate: new Date('2026-05-01'),
       dueDate: new Date('2026-08-31'),
       progress: 100,
-      uomType: 'MIN',
+      uomType: 'PERCENTAGE',
       target: '100% compliance',
       isShared: false,
       userId: employeeSwetha.id,
@@ -158,31 +157,7 @@ async function main() {
     },
   });
 
-  await prisma.quarterlyReview.create({
-    data: {
-      quarter: 'Q1',
-      planned: 'Complete core connection pooling and driver integration.',
-      actual: 'LibSQL adapter configured and dev database fully optimized.',
-      progress: 60,
-      managerFeedback: 'Exceptional database architecture progress. Keep up the high standards!',
-      status: 'On Track',
-      goalId: goal1.id,
-      userId: employeeNeha.id,
-    },
-  });
-
-  await prisma.quarterlyReview.create({
-    data: {
-      quarter: 'Q1',
-      planned: 'Pass full OWASP Top-10 security scan and audit.',
-      actual: 'Completed full scan and deployed vercel.json headers.',
-      progress: 100,
-      managerFeedback: 'Outstanding work. 100% compliance target achieved early.',
-      status: 'Completed',
-      goalId: goal3.id,
-      userId: employeeSwetha.id,
-    },
-  });
+ 
 
   // 6. Create AuditLogs (including rework / escalations)
   console.log('Seeding AuditLogs...');
@@ -192,12 +167,6 @@ async function main() {
     data: {
       action: 'APPROVE_GOAL',
       details: 'Goal "Increase Core Platform Scalability" approved by Manager.',
-      field: 'status',
-      previousValue: 'SUBMITTED',
-      newValue: 'APPROVED',
-      role: 'MANAGER',
-      actionType: 'APPROVAL',
-      goalId: goal1.id,
       userId: managerPm.id,
     },
   });
@@ -206,12 +175,6 @@ async function main() {
     data: {
       action: 'REWORK_GOAL',
       details: 'Goal "Automate Infrastructure Provisioning" returned for rework by Manager.',
-      field: 'status',
-      previousValue: 'SUBMITTED',
-      newValue: 'RETURNED_FOR_REWORK',
-      role: 'MANAGER',
-      actionType: 'REWORK_REQUEST',
-      goalId: goal2.id,
       userId: managerPm.id,
     },
   });
@@ -220,12 +183,6 @@ async function main() {
     data: {
       action: 'ADMIN_OVERRIDE',
       details: 'Admin override triggered by System Admin for security compliance review.',
-      field: 'status',
-      previousValue: 'DRAFT',
-      newValue: 'APPROVED',
-      role: 'ADMIN',
-      actionType: 'ADMIN_OVERRIDE',
-      goalId: goal3.id,
       userId: admin.id,
     },
   });

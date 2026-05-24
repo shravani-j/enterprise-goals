@@ -26,12 +26,6 @@ export async function logAudit({
       data: {
         action,
         details,
-        field,
-        previousValue: previousValue ? String(previousValue) : null,
-        newValue: newValue ? String(newValue) : null,
-        role,
-        actionType,
-        goalId,
         userId,
       },
     });
